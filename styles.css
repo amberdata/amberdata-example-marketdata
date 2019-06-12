@@ -1,0 +1,54 @@
+* {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    letter-spacing: .2px;
+}
+
+/* Remove outlines esp. those that chrome might potentially insert */
+*:focus {
+    outline: none;
+}
+
+body.noScroll { /* ...or body.dialogShowing */
+    overflow: hidden;
+}
+
+body {
+    margin: 0;
+    font-family: Helvetica Neue, Helvetica, Arial, sans-serif;
+    background: #f9f9f9f9;
+    /*overflow: hidden;*/
+}
+
+a {
+    color: inherit;
+    text-decoration: none;
+}
+.container {
+    display: grid;
+    width: 50%;
+    justify-items: center;
+    align-items: center;
+    margin: auto;
+    padding-top: 5vh;
+    row-gap: 20px;
+}
+
+.title {
+text-align: center;
+font-size: 3vw;
+font-family: Helvetica Neue, Helvetica, Arial, sans-serif;
+}
+
+.title img {
+    margin-top: 30px;
+}
+
+#chart--ohlcv {
+    width:100%;
+    height:500px;
+}
+#chart--depth {
+    width:100%;
+    height:500px;
+}
