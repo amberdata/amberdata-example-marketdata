@@ -35,14 +35,59 @@ a {
 }
 
 .title {
+    color: #606060;
 text-align: center;
-font-size: 3vw;
+font-size: 3.5vw;
 font-family: Helvetica Neue, Helvetica, Arial, sans-serif;
 }
 
 .title img {
     margin-top: 30px;
 }
+
+
+/* - - - - - - - - - - - - - - - *
+ *         Page header
+ * - - - - - - - - - - - - - - - */
+#page-header {
+    display: flex;
+    align-items: center;
+    flex-flow: column;
+    justify-content: space-evenly;
+    padding: 15px;
+    height: 20vh;
+}
+
+#page-header #demo-title {
+    font-size: 3vw;
+    color: #444444;
+}
+
+#page-header #demo-title b {
+    font-weight: 300;
+}
+
+
+#page-header #repo-link {
+    font-size: 1.5vw;
+    display: grid;
+    grid-template-columns: auto auto;
+    grid-column-gap: 5px;
+    align-items: center;
+    color: #606060;
+    font-weight: 300;
+    margin-top: 10px;
+}
+
+#page-header #github-logo {
+    width: 30px;
+    fill: #606060;
+}
+
+#pwrd-by {
+    margin-top: 30px;
+}
+
 
 #chart--ohlcv {
     width:100%;
