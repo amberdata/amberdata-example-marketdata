@@ -18,6 +18,7 @@ body {
     font-family: Helvetica Neue, Helvetica, Arial, sans-serif;
     background: #f9f9f9f9;
     /*overflow: hidden;*/
+    text-align: center;
 }
 
 a {
@@ -26,12 +27,13 @@ a {
 }
 .container {
     display: grid;
-    width: 50%;
+    grid-template-rows: 10% 1fr;
+    grid-template-columns: 1fr 1fr;
     justify-items: center;
     align-items: center;
     margin: auto;
-    padding-top: 5vh;
-    row-gap: 20px;
+    padding: 15px;
+    row-gap: 15px;
 }
 
 .title {
@@ -85,7 +87,7 @@ font-family: Helvetica Neue, Helvetica, Arial, sans-serif;
 }
 
 #pwrd-by {
-    margin-top: 30px;
+    margin-top: 40px;
 }
 
 
@@ -94,6 +96,60 @@ font-family: Helvetica Neue, Helvetica, Arial, sans-serif;
     height:500px;
 }
 #chart--depth {
-    width:100%;
-    height:500px;
+    width: 100%;
+    height: 500px;
+}
+
+
+.loader {
+    grid-column-start: 1;
+    grid-column-end: 3;
+    display: flex;
+    flex-flow: row-reverse;
+    align-items: center;
+    transition: opacity 500ms ease-in-out;
+}
+.loader h3 {
+    font-weight: 300;
+}
+#bug {
+    z-index: 10;
+    width: 125px;
+    height: 125px;
+}
+
+#orange-dot {
+    animation: bounce 800ms;
+    transform: translateY(0px);
+    animation-iteration-count: infinite;
+    transform-origin: center;
+    position: absolute;
+}
+
+@keyframes bounce {
+    0% {transform: translateY(0px) scaleY(.9);
+        -webkit-animation-timing-function: ease-in;
+    }
+    40% {}
+    50% {transform: translateY(-150px);
+        height: 140px;
+        -webkit-animation-timing-function: ease-out;
+    }
+    53% {transform: translateY(-160px);
+        height: 140px;
+        -webkit-animation-timing-function: ease-out;
+    }
+    55% {transform: translateY(-170px) scaleY(1);
+        -webkit-animation-timing-function: ease-in;}
+    60% {transform: translateY(-160px);
+        -webkit-animation-timing-function: ease-out;}
+    65% {transform: translateY(-130px);
+        -webkit-animation-timing-function: ease-out;}
+    95% {
+        transform: translateY(0px) scaleY(.9);
+        -webkit-animation-timing-function: ease-in;
+    }
+    100% {transform: translateY(0px) scaleY(.9);
+        -webkit-animation-timing-function: ease-in;
+    }
 }
