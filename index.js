@@ -18,8 +18,9 @@
         * */
 
         console.log('The DOM is ready');
-        const _data = extractData(await getHistoricalOHLCV('eth_btc')).data
-        initCharts(_data)
+
+        await initCharts()
+
 
         console.log(window.data)
 
@@ -55,7 +56,6 @@
                 if(!hasReceivedData)
                     socket.send(`{"jsonrpc":"2.0","id":0,"method":"subscribe","params":["market:orders",{"pair":"${pair}","exchange":"gdax"}]}`);
             }, 5000)
-
         });
 
         // Listen for messages
@@ -203,7 +203,7 @@
             price: dataArray[3], volume: dataArray[4], isBid: dataArray[5]} )
 
 
-    const initCharts = (data) => {
+    const initCharts = async () => {
         am4core.ready(function() {
 
             // Themes begin
@@ -276,7 +276,7 @@
                         }
                     }
                 }
-
+                $('.loader').css('opacity', '0')
                 // Init
                 var res = [];
                 processData(data.payload.data.bid, "bids", true);
@@ -345,7 +345,7 @@
             window.chart = chart
         }); // end am4core.ready()
 
-
+        const data = extractData(await getHistoricalOHLCV('eth_btc')).data
         // split the data set into ohlc and volume
         var ohlc = [],
             volume = [],
