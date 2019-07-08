@@ -11,40 +11,32 @@
     // Listen for the jQuery ready event on the document
     $(async function (format, data) {
 
-        /*
-        * ASSUMPTIONS
-        * **Only 100 data points at a time on the graph
-        * **Removes data point when new one is added
-        * */
-
         console.log('The DOM is ready');
 
         await initCharts()
 
+        const dataHandler = new DataHandler(window.data)
 
-        console.log(window.data)
-
-        initWebSockets()
-        setInterval(
-            () => {
-
-            }, 500)
+        initWebSockets(dataHandler)
     });
 
-    let config = {
-        headers: {"x-api-key": "UAK000000000000000000000000demo0001"}
+    /* Demo key - Get your API Key at amberdata.io/pricing
+    * and place yours here! */
+    const API_KEY = 'UAKe962c0fadb076fc5053476a6d5fef079'
+
+    const config = {
+        headers: {"x-api-key": API_KEY}
     }
 
     const getHistoricalOHLCV = (pair) => axios.get(`https://web3api.io/api/v1/market/ohlcv/${pair}/historical`, config)
 
     let hasReceivedData = false
 
-    /* Demo key - Get your API Key at amberdata.io/pricing
-    * and place yours here! */
-    let initWebSockets = () => {
+
+    const initWebSockets = (dataHandler) => {
 
         // Create WebSocket connection.
-        const socket = new WebSocket('wss://ws.web3api.io?x-api-key=UAK000000000000000000000000demo0001');
+        const socket = new WebSocket(`wss://ws.web3api.io?x-api-key=${API_KEY}`);
 
         // Connection opened
         socket.addEventListener('open', function (event) {
@@ -59,155 +51,159 @@
         });
 
         // Listen for messages
-        socket.addEventListener('message', responseHandler);
+        socket.addEventListener('message', (wsEvent) => _responseHandler(wsEvent, dataHandler));
 
         // Listen for messages
         socket.addEventListener('close', function (event) {
             console.log('Connection closed - ', event);
-            initWebSockets()
+            initWebSockets(dataHandler)
         });
     }
 
-    const PRICE = 3, VOLUME = 4, ISBID = 5;
-
     const extractData = (data) => data.data.payload
 
-    let bidCount = 0 , askCount = 0, removeOrderCount = 0;
+    const _responseHandler = (wsEvent, dataHandler) => {
+        const data = JSON.parse(wsEvent.data)
 
-    /**
-     * Manages Websocket subscriptions.
-     */
-    const responseHandler = (wsEvent) => {
-        // add to queue
-        hasReceivedData = true
-        const raw_data = JSON.parse(wsEvent.data)
-        let data
+        if(!isSubscriptionAck(data)) {
+            const order = data.params.result[0]
+            const point = new Point(order)
+            const pointExists = dataHandler.pointExists(point)
 
-        // It's a subscription response or error either way bail out
-        if (!raw_data.params) return
-
-        // Grab the data from the param 'result'
-        data = toDataObject(raw_data.params.result[0])
-
-        let range = {
-            head: data.isBid? 0 : parseInt(window.chart.data.length / 2),
-            tail: data.isBid ? parseInt(window.chart.data.length / 2)  : window.chart.data.length,
-        }
-
-
-        let totalVolumeKey = data.isBid ? 'bidstotalvolume' : 'askstotalvolume'
-        let volumeKey = data.isBid ? 'bidsvolume' : 'asksvolume'
-
-        let priceIndex = indexOfPrice(data.price, range.head, range.tail)
-
-        let removeOrder = data.volume === 0
-
-        let op = data.isBid ? '--' : '++'
-        let comp = data.isBid ? '>=' : '<'
-        let limit = data.isBid ? range.head : range.tail
-
-        if (priceIndex >= 0) { // update existing price
-
-            let volume = data.volume
-
-            // If removeOrder (order is a volume of 0) then
-            if (removeOrder) {
-
-                // get volume at that price
-                volume = window.chart.data[priceIndex][volumeKey]
-
+            if(pointExists && point.volume > 0) {
+                dataHandler.updatePoint(point)
+            } else if(pointExists && point.volume === 0) {
+                dataHandler.removePoint(point)
+            } else if(!pointExists) {
+                dataHandler.addPoint(point)
             } else {
-                window.chart.data[priceIndex][volumeKey] += volume
             }
-
-
-            // subtract volume from all prices greater than the price index
-
-            // updateCulmVolume()
-            for(let i = priceIndex; eval(`i${comp}${limit}`); eval(`i${op}`)) {
-                window.chart.data[i][totalVolumeKey] += ( volume * (removeOrder ? -1 : 1) )
-            }
-
-            // Refresh the chart with updated data
-            if (removeOrder) {
-                // remove price from data
-                window.chart.data.splice(priceIndex, 1)
-                window.chart.invalidateData();
-            }
-            else {
-                window.chart.invalidateRawData();
-            }
-
-        } else { // add new price entry
-            // l(`add new price entry - `, data.price)
-            // get the index of the new price
-            let newPriceIndex = indexOfNewPrice(data.price, range.head, range.tail)
-            // //
-            // window.chart.data.splice(newPriceIndex, 0 /*<- no delete*/,
-            //     {
-            //         value: data.price,
-            //         [volumeKey] : data.volume,
-            //         [totalVolumeKey]: data.volume + window.chart.data[newPriceIndex + (data.isBid ? 1 : -1)]
-            //     })
-            //
-            // // updateCulmVolume
-            // for(let i = newPriceIndex + (data.isBid ? -1 : 1); eval(`i${comp}${limit}`); eval(`i${op}`)) {
-            //     window.chart.data[i][totalVolumeKey] += data.price
-            // }
-
+            window.chart.data = dataHandler.getDataArray()
+            window.chart.invalidateData();
         }
+
     }
 
-    const updateCulmVolume = (index, head, tail, isBid, removeOrder) => {
-        let op = isBid ? '--' : '++'
-        let comp = isBid ? '>=' : '<'
-        let limit = isBid ? range.head : range.tail
-        for(let i = priceIndex; eval(`i${comp}${limit}`); eval(`i${op}`)) {
-            window.chart.data[i][totalVolumeKey] += ( volume * (removeOrder ? -1 : 1) )
-        }
-    }
+    const l = (...message) => console.log(message)
 
     /**
-     * Get's the index of the price in the array within a given range
-     * @param price the price ot get the index of
-     * @param head the start of the range
-     * @param tail the end of the range (exclusive)
-     * @return -1 if not found or the price's index in the array
+     * Returns true if the websocket message is a subscription response
+     * as seen here: docs.amberdata.io/reference/subscriptions#section-example-
+     * @param msg the websocket response method
+     * @return {boolean}
      */
-    const indexOfPrice = (price, head=0, tail=window.chart.length) => {
-        let priceIndex = -1
-        // console.log(`indexOfPrice`, {head, tail})
-        for (let i = head; i < tail && priceIndex < 0; i++) {
-            if (!window.chart.data[i]) {
-                console.log(`data[${i}] is undef`)
-            }
-            if (window.chart.data[i].value === price) {
-                priceIndex = i
-            }
+    const isSubscriptionAck = msg => !msg.params
+
+    class Point {
+        constructor(dataArray) {
+            this.price = dataArray[3]
+            this.volume = dataArray[4]
+            this.isBid = dataArray[5]
+            this.totalvolume = 0
+            this.type = this.isBid ? 'bids' : 'asks'
         }
-        return priceIndex
+        toJSON() {
+            return {value: this.price, [`${this.type}volume`]: this.volume, [`${this.type}totalvolume`]: this.totalvolume}
+        }
     }
 
-    const indexOfNewPrice = (price, head=0, tail=window.chart.length) => {
-        let priceIndex = -1
-        for (let i = head; i < tail && priceIndex < 0; i++) {
-            if (window.chart.data[i].value > price) {
-                priceIndex = i
+    class DataHandler {
+        constructor(dataArray) {
+            // Init inital list
+            this.dataArray = dataArray.map( entry => [entry.value, entry])
+            this.bids = new SortedMap(this.dataArray.slice(0,50))
+            this.asks = new SortedMap(this.dataArray.slice(50,100))
+        }
+
+        pointExists(point) {
+            return point.isBid ? this.bids.has(point.price) : this.asks.has(point.price)
+        }
+
+        updatePoint(point) {
+            // get reference to the data set: bids or asks
+            let dataSet = this._getDataSet(point.isBid)
+            let _point = dataSet.get(point.price)
+
+            _point[`${point.type}volume`] += point.volume
+            dataSet.set(point.price, _point)
+            this._updateCulmVol(dataSet, this._indexOf(point), point.isBid, point.volume)
+        }
+
+        addPoint(point) {
+            // get reference to the data set: bids or asks
+            const dataSet = this._getDataSet(point.isBid)
+
+            dataSet.set(point.price, point.toJSON())
+
+            const dataArray = dataSet.toArray()
+            const pIndex = this._indexOf(point)
+            const op = this._getOperation(!point.isBid)
+            const adjcentPoint = dataArray[op(pIndex, 1)]
+            console.log(op(pIndex, 1))
+            // If adding to the 'inner' most index, point.totalvolume === point.volume
+            point.totalvolume = adjcentPoint ? adjcentPoint[`${point.type}totalvolume`] : 0
+            dataSet.set(point.price, point.toJSON())
+            this._updateCulmVol(dataSet, this._indexOf(point), point.isBid, point.volume)
+        }
+
+        removePoint(point) {
+            // get reference to the data set: bids or asks
+            const dataSet = this._getDataSet(point.isBid)
+            const _point = dataSet.get(point.price)
+            const volume = Object.values(_point)[1]
+            const index = this._indexOf(point)
+            dataSet.delete(point.price)
+            this._updateCulmVol(dataSet, index, point.isBid, -volume)
+        }
+
+        getDataArray() {
+            return  [...this.bids.values(), ...this.asks.values()]
+        }
+
+        _updateCulmVol(dataSet, index, isBid, value) {
+            const op = this._getOperation(isBid)
+            const comp = this._getComparison(isBid)
+            const end = isBid ? -1 : dataSet.length
+            const dataArray = dataSet.toArray()
+            // get the string name of the set
+            const type = isBid ? 'bids' : 'asks'
+
+            for(let i = index; comp(i, end); i = op(i, 1)) {
+                const data = dataArray[i]
+                data[`${type}totalvolume`] += value
+                dataSet.set(dataArray[i].value, data)
+
             }
         }
-        return priceIndex
-    }
 
-    let toDataObject = (dataArray) => (
-        {exchange: dataArray[0], timestamp: dataArray[1], millis: dataArray[2],
-            price: dataArray[3], volume: dataArray[4], isBid: dataArray[5]} )
+        _getComparison(isBid) {
+            const gt = (a, b) => a > b
+            const lt = (a, b) => a < b
+            return isBid ? gt : lt
+        }
+
+        _getOperation(isBid) {
+            const add = (a, b) =>  a + b
+            const sub = (a, b) => a - b
+            return isBid ? sub : add
+        }
+
+        _getDataSet(isBid) {
+            return isBid ? this.bids : this.asks
+        }
+
+        _indexOf(point) {
+            let keys = [...this._getDataSet(point.isBid).keys()]
+            return keys.indexOf(point.price)
+        }
+    }
 
 
     const initCharts = async () => {
         am4core.ready(function() {
 
             // Themes begin
-            am4core.useTheme(am4themes_animated);
+            // am4core.useTheme(am4themes_animated);
             // Themes end
 
             // Create chart instance
@@ -216,7 +212,7 @@
             // Add data
             chart.dataSource.requestOptions.requestHeaders = [{
                 "key": "x-api-key",
-                "value": "UAK000000000000000000000000demo0001"
+                "value": API_KEY
             }];
             chart.dataSource.url = `https://web3api.io/api/v1/market/orders/eth_btc?exchange=gdax&timestamp=${new Date().getTime() - 3600000.00}`;
             chart.dataSource.adapter.add("parsedData", function(data) {
@@ -281,10 +277,12 @@
                 var res = [];
                 processData(data.payload.data.bid, "bids", true);
                 processData(data.payload.data.ask, "asks", false);
-                console.log(res)
 
-                window.data = new SortedMap(res.map( entry => [entry.value, entry]))
-                // window.data = res
+                // window.asks = new SortedMap(data.payload.data.bid.map( entry => [entry.value, entry]))
+                // window.bids = new SortedMap(data.payload.data.asks.map( entry => [entry.value, entry]))
+
+                // window.data = new SortedMap(res.map( entry => [entry.value, entry]))
+                window.data = res
                 return res;
             });
 
@@ -297,11 +295,11 @@
             //xAxis.renderer.grid.template.location = 0;
             xAxis.renderer.minGridDistance = 50;
             xAxis.title.text = "Price (ETH/BTC)";
-            xAxis.interpolationDuration = 500;
+            // xAxis.interpolationDuration = 500;
 
             var yAxis = chart.yAxes.push(new am4charts.ValueAxis());
             yAxis.title.text = "Volume";
-            yAxis.interpolationDuration = 500;
+            // yAxis.interpolationDuration = 500;
 
             // Create series
             var series = chart.series.push(new am4charts.StepLineSeries());
@@ -312,7 +310,7 @@
             series.fill = series.stroke;
             series.fillOpacity = 0.1;
             series.tooltipText = "Bid: [bold]{categoryX}[/]\nTotal volume: [bold]{valueY}[/]\nVolume: [bold]{bidsvolume}[/]"
-            series.interpolationDuration = 500;
+            // series.interpolationDuration = 500;
 
             var series2 = chart.series.push(new am4charts.StepLineSeries());
             series2.dataFields.categoryX = "value";
@@ -322,7 +320,7 @@
             series2.fill = series2.stroke;
             series2.fillOpacity = 0.1;
             series2.tooltipText = "Ask: [bold]{categoryX}[/]\nTotal volume: [bold]{valueY}[/]\nVolume: [bold]{asksvolume}[/]"
-            series2.interpolationDuration = 500;
+            // series2.interpolationDuration = 500;
 
             var series3 = chart.series.push(new am4charts.ColumnSeries());
             series3.dataFields.categoryX = "value";
@@ -330,7 +328,7 @@
             series3.strokeWidth = 0;
             series3.fill = am4core.color("#000");
             series3.fillOpacity = 0.2;
-            series3.interpolationDuration = 500;
+            // series3.interpolationDuration = 500;
 
             var series4 = chart.series.push(new am4charts.ColumnSeries());
             series4.dataFields.categoryX = "value";
@@ -338,7 +336,7 @@
             series4.strokeWidth = 0;
             series4.fill = am4core.color("#000");
             series4.fillOpacity = 0.2;
-            series4.interpolationDuration = 500;
+            // series4.interpolationDuration = 500;
 
             // Add cursor
             chart.cursor = new am4charts.XYCursor();
