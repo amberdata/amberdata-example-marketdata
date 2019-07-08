@@ -22,7 +22,7 @@
 
     /* Demo key - Get your API Key at amberdata.io/pricing
     * and place yours here! */
-    const API_KEY = 'UAKe962c0fadb076fc5053476a6d5fef079'
+    const API_KEY = 'UAK000000000000000000000000demo0001'
 
     const config = {
         headers: {"x-api-key": API_KEY}
@@ -416,7 +416,7 @@
 
             series: [{
                 type: 'candlestick',
-                name: 'AAPL',
+                name: 'ETH/BTC',
                 data: ohlc,
                 dataGrouping: {
                     units: groupingUnits
