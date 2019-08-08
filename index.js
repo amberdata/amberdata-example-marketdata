@@ -13,30 +13,50 @@
 
         console.log('The DOM is ready');
 
-        await initCharts()
+    });
+
+    /* Text Input listener
+ * Watches the input field and will initiate search after an
+ * address is entered.
+ */
+    let textInput = document.getElementById('api-key-input');
+    let timeout = null; // Init a timeout variable to be used below
+    textInput.onkeyup = (e) => {  // Listen for keystroke events
+
+        // Clear the timeout if it has already been set.
+        // This will prevent the previous task from executing
+        // if it has been less than <MILLISECONDS>
+        clearTimeout(timeout);
+
+        // Make a new timeout set to go off in 800ms
+        timeout = setTimeout(async () => {
+            await initAll(textInput.value);
+        }, 500);
+    };
+
+    const initAll = async (api_key) => {
+        await initCharts(api_key)
 
         const dataHandler = new DataHandler(window.data)
 
-        initWebSockets(dataHandler)
-    });
+        initWebSockets(dataHandler, api_key)
+    }
 
     /* Demo key - Get your API Key at amberdata.io/pricing
     * and place yours here! */
-    const API_KEY = 'UAK000000000000000000000000demo0001'
+    const API_KEY = ''
 
-    const config = {
-        headers: {"x-api-key": API_KEY}
-    }
-
-    const getHistoricalOHLCV = (pair) => axios.get(`https://web3api.io/api/v1/market/ohlcv/${pair}/historical`, config)
+    const getHistoricalOHLCV = (pair, api_key) => axios.get(`https://web3api.io/api/v1/market/ohlcv/${pair}/historical`, {
+        headers: {"x-api-key": api_key}
+    })
 
     let hasReceivedData = false
 
 
-    const initWebSockets = (dataHandler) => {
+    const initWebSockets = (dataHandler, api_key) => {
 
         // Create WebSocket connection.
-        const socket = new WebSocket(`wss://ws.web3api.io?x-api-key=${API_KEY}`);
+        const socket = new WebSocket(`wss://ws.web3api.io?x-api-key=${api_key}`);
 
         // Connection opened
         socket.addEventListener('open', function (event) {
@@ -61,13 +81,18 @@
     }
 
     const extractData = (data) => data.data.payload
-
+    // let bids = {'respHand': 0, 'upPoint': 0}, asks = {'respHand': 0, 'upPoint': 0};
     const _responseHandler = (wsEvent, dataHandler) => {
         const data = JSON.parse(wsEvent.data)
 
         if(!isSubscriptionAck(data)) {
             const order = data.params.result[0]
+            // bids.respHand += order[5]
+            // asks.respHand += !order[5]()
+            // console.log(`respHand - `, {bids: bids.respHand, asks: asks.respHand})
+
             const point = new Point(order)
+
             const pointExists = dataHandler.pointExists(point)
 
             if(pointExists && point.volume > 0) {
@@ -76,7 +101,9 @@
                 dataHandler.removePoint(point)
             } else if(!pointExists) {
                 dataHandler.addPoint(point)
+                // console.log(`no exist`, point)
             } else {
+                console.log(`no exist`, point)
             }
             window.chart.data = dataHandler.getDataArray()
             window.chart.invalidateData();
@@ -108,6 +135,7 @@
     }
 
     class DataHandler {
+
         constructor(dataArray) {
             // Init inital list
             this.dataArray = dataArray.map( entry => [entry.value, entry])
@@ -121,8 +149,11 @@
 
         updatePoint(point) {
             // get reference to the data set: bids or asks
-            let dataSet = this._getDataSet(point.isBid)
-            let _point = dataSet.get(point.price)
+            const dataSet = this._getDataSet(point.isBid)
+            /*bids.upPoint += point.isBid
+            asks.upPoint += !point.isBid
+            console.log(`updatepoint - `, {bids: bids.upPoint, asks: asks.upPoint})*/
+            const _point = dataSet.get(point.price)
 
             _point[`${point.type}volume`] += point.volume
             dataSet.set(point.price, _point)
@@ -149,11 +180,17 @@
         removePoint(point) {
             // get reference to the data set: bids or asks
             const dataSet = this._getDataSet(point.isBid)
+
             const _point = dataSet.get(point.price)
             const volume = Object.values(_point)[1]
+            const totalvolume = Object.values(_point)[2]
+
             const index = this._indexOf(point)
             dataSet.delete(point.price)
-            this._updateCulmVol(dataSet, index, point.isBid, -volume)
+            console.log(point.type, ' - ', point.price, ' volume ', totalvolume > 0 ? -volume : 0)
+            console.log({point})
+            console.log({_point})
+            this._updateCulmVol(dataSet, point.isBid ? index - 1 : index, point.isBid, totalvolume > 0 ? -volume : 0)
         }
 
         getDataArray() {
@@ -165,11 +202,18 @@
             const comp = this._getComparison(isBid)
             const end = isBid ? -1 : dataSet.length
             const dataArray = dataSet.toArray()
+
             // get the string name of the set
             const type = isBid ? 'bids' : 'asks'
+            if(value < 0 && isBid) {
+                console.log()
+            }
 
             for(let i = index; comp(i, end); i = op(i, 1)) {
                 const data = dataArray[i]
+                if (data[`${type}totalvolume`] + value < 0) {
+                    console.log('wtf')
+                }
                 data[`${type}totalvolume`] += value
                 dataSet.set(dataArray[i].value, data)
 
@@ -199,7 +243,7 @@
     }
 
 
-    const initCharts = async () => {
+    const initCharts = async (api_key) => {
         am4core.ready(function() {
 
             // Themes begin
@@ -212,7 +256,7 @@
             // Add data
             chart.dataSource.requestOptions.requestHeaders = [{
                 "key": "x-api-key",
-                "value": API_KEY
+                "value": api_key
             }];
             chart.dataSource.url = `https://web3api.io/api/v1/market/orders/eth_btc?exchange=gdax&timestamp=${new Date().getTime() - 3600000.00}`;
             chart.dataSource.adapter.add("parsedData", function(data) {
@@ -275,13 +319,10 @@
                 $('.loader').css('opacity', '0')
                 // Init
                 var res = [];
+                console.log(data.payload.data)
                 processData(data.payload.data.bid, "bids", true);
                 processData(data.payload.data.ask, "asks", false);
 
-                // window.asks = new SortedMap(data.payload.data.bid.map( entry => [entry.value, entry]))
-                // window.bids = new SortedMap(data.payload.data.asks.map( entry => [entry.value, entry]))
-
-                // window.data = new SortedMap(res.map( entry => [entry.value, entry]))
                 window.data = res
                 return res;
             });
@@ -343,7 +384,7 @@
             window.chart = chart
         }); // end am4core.ready()
 
-        const data = extractData(await getHistoricalOHLCV('eth_btc')).data
+        const data = extractData(await getHistoricalOHLCV('eth_btc', api_key)).data
         // split the data set into ohlc and volume
         var ohlc = [],
             volume = [],
