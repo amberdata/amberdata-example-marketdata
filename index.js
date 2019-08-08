@@ -244,6 +244,9 @@
 
 
     const initCharts = async (api_key) => {
+
+        $('#overlay').css('opacity', '.5')
+        $('.loader').css('opacity', '1');
         am4core.ready(function() {
 
             // Themes begin
@@ -316,7 +319,8 @@
                         }
                     }
                 }
-                $('.loader').css('opacity', '0')
+
+
                 // Init
                 var res = [];
                 console.log(data.payload.data)
@@ -384,7 +388,19 @@
             window.chart = chart
         }); // end am4core.ready()
 
-        const data = extractData(await getHistoricalOHLCV('eth_btc', api_key)).data
+
+
+        let data
+
+        try {
+            data = extractData(await getHistoricalOHLCV('eth_btc', api_key)).data
+        } catch (e) {
+            console.error(`Error with request most likely caused by invalid api key`, e)
+            $('.loader').css('opacity', '0')
+            $('#overlay').css('opacity', '0')
+        }
+
+
         // split the data set into ohlc and volume
         var ohlc = [],
             volume = [],
@@ -413,6 +429,7 @@
                 data.bitfinex[i][5] // the volume
             ]);
         }
+
         // create the chart
         Highcharts.stockChart('chart--ohlcv', {
 
@@ -472,7 +489,12 @@
                 }
             }]
         });
-
+        $('.loader').css('opacity', '0')
+        $('#overlay').css('opacity', '0')
     }
+
+
+
+
 
 }));

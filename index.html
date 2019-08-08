@@ -7,7 +7,9 @@
     <link rel="stylesheet" href="styles.css" type="text/css">
 </head>
 <body>
+<div id="overlay">
 
+</div>
 <div id="page-header">
     <div id="demo-title"><b>Market Data Stats</b></div>
     <a id="repo-link"
@@ -18,7 +20,11 @@
 </div>
 
 <div class="container">
+
+
+
     <div class="loader">
+        <h2></h2>
         <h3>Loading charts...</h3>
         <svg version="1.1" id="bug" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px"
                      viewBox="0 0 1000 1000" style="enable-background:new 0 0 1000 1000;" xml:space="preserve">
@@ -49,7 +55,7 @@
     </div>
     <div class="api-key-input">
         <input id="api-key-input" type="text"
-               placeholder="Enter API KEY">
+               placeholder="Enter Enterprise API Key to view charts">
     </div>
     <div class="chart" id="chart--ohlcv"></div>
     <div class="chart" id="chart--depth"></div>

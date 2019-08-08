@@ -18,11 +18,23 @@ body {
     font-family: Helvetica Neue, Helvetica, Arial, sans-serif;
     background: #f9f9f9f9;
     text-align: center;
+    position: relative;
+    height: 100vh;
 }
 
 a {
     color: inherit;
     text-decoration: none;
+}
+
+#overlay {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    opacity: 0;
+    pointer-events: none;
+    background: grey;
+    z-index: 1000;
 }
 
 .container {
@@ -35,6 +47,11 @@ a {
     padding: 15px;
     row-gap: 15px;
     position: relative;
+}
+
+.container h2 {
+    margin: auto;
+    font-weight: 300;
 }
 
 .title {
@@ -137,12 +154,13 @@ a {
     display: flex;
     flex-flow: row-reverse;
     align-items: center;
-    transition: opacity 500ms ease-in-out;
+    transition: opacity 300ms ease-in-out;
     position: absolute;
+    opacity: 0;
+    z-index: 1001;
+    color: white;
 }
-.loader h3 {
-    font-weight: 300;
-}
+
 #bug {
     z-index: 10;
     width: 125px;
