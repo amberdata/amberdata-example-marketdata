@@ -16,9 +16,9 @@
     });
 
     /* Text Input listener
- * Watches the input field and will initiate search after an
- * address is entered.
- */
+     * Watches the input field and will initiate search after an
+     * address is entered.
+     */
     let textInput = document.getElementById('api-key-input');
     let timeout = null; // Init a timeout variable to be used below
     textInput.onkeyup = (e) => {  // Listen for keystroke events
@@ -41,10 +41,6 @@
 
         initWebSockets(dataHandler, api_key)
     }
-
-    /* Demo key - Get your API Key at amberdata.io/pricing
-    * and place yours here! */
-    const API_KEY = ''
 
     const getHistoricalOHLCV = (pair, api_key) => axios.get(`https://web3api.io/api/v1/market/ohlcv/${pair}/historical`, {
         headers: {"x-api-key": api_key}
@@ -81,15 +77,12 @@
     }
 
     const extractData = (data) => data.data.payload
-    // let bids = {'respHand': 0, 'upPoint': 0}, asks = {'respHand': 0, 'upPoint': 0};
+
     const _responseHandler = (wsEvent, dataHandler) => {
         const data = JSON.parse(wsEvent.data)
 
         if(!isSubscriptionAck(data)) {
             const order = data.params.result[0]
-            // bids.respHand += order[5]
-            // asks.respHand += !order[5]()
-            // console.log(`respHand - `, {bids: bids.respHand, asks: asks.respHand})
 
             const point = new Point(order)
 
@@ -110,8 +103,6 @@
         }
 
     }
-
-    const l = (...message) => console.log(message)
 
     /**
      * Returns true if the websocket message is a subscription response
@@ -147,17 +138,23 @@
             return point.isBid ? this.bids.has(point.price) : this.asks.has(point.price)
         }
 
-        updatePoint(point) {
+        updatePoint(pointToUpdate) {
             // get reference to the data set: bids or asks
-            const dataSet = this._getDataSet(point.isBid)
-            /*bids.upPoint += point.isBid
-            asks.upPoint += !point.isBid
-            console.log(`updatepoint - `, {bids: bids.upPoint, asks: asks.upPoint})*/
-            const _point = dataSet.get(point.price)
+            const dataSet = this._getDataSet(pointToUpdate.isBid)
 
-            _point[`${point.type}volume`] += point.volume
-            dataSet.set(point.price, _point)
-            this._updateCulmVol(dataSet, this._indexOf(point), point.isBid, point.volume)
+            // Get the current point state before it's updated
+            const currentPoint = dataSet.get(pointToUpdate.price)
+
+            // Get the current Point's volume
+            // ( volume is at index 1 -> [<price>, <volume>, <totalvolume> ])
+            const currentPointVolume = Object.values(currentPoint)[1]
+
+            const volumeDifference = pointToUpdate.volume - currentPointVolume
+
+
+            currentPoint[`${pointToUpdate.type}volume`] = pointToUpdate.volume
+            dataSet.set(pointToUpdate.price, currentPoint)
+            this._updateCulmVol(dataSet, this._indexOf(pointToUpdate), pointToUpdate.isBid, volumeDifference)
         }
 
         addPoint(point) {
@@ -170,27 +167,25 @@
             const pIndex = this._indexOf(point)
             const op = this._getOperation(!point.isBid)
             const adjcentPoint = dataArray[op(pIndex, 1)]
-            console.log(op(pIndex, 1))
+
             // If adding to the 'inner' most index, point.totalvolume === point.volume
             point.totalvolume = adjcentPoint ? adjcentPoint[`${point.type}totalvolume`] : 0
             dataSet.set(point.price, point.toJSON())
             this._updateCulmVol(dataSet, this._indexOf(point), point.isBid, point.volume)
         }
 
-        removePoint(point) {
+        removePoint(pointToRemove) {
             // get reference to the data set: bids or asks
-            const dataSet = this._getDataSet(point.isBid)
+            const dataSet = this._getDataSet(pointToRemove.isBid)
 
-            const _point = dataSet.get(point.price)
+            const _point = dataSet.get(pointToRemove.price)
             const volume = Object.values(_point)[1]
             const totalvolume = Object.values(_point)[2]
 
-            const index = this._indexOf(point)
-            dataSet.delete(point.price)
-            console.log(point.type, ' - ', point.price, ' volume ', totalvolume > 0 ? -volume : 0)
-            console.log({point})
-            console.log({_point})
-            this._updateCulmVol(dataSet, point.isBid ? index - 1 : index, point.isBid, totalvolume > 0 ? -volume : 0)
+            const index = this._indexOf(pointToRemove)
+            dataSet.delete(pointToRemove.price)
+
+            this._updateCulmVol(dataSet, pointToRemove.isBid ? index - 1 : index, pointToRemove.isBid, totalvolume > 0 ? - volume : 0)
         }
 
         getDataArray() {

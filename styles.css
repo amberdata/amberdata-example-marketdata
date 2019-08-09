@@ -105,7 +105,7 @@ a {
 }
 
 #pwrd-by {
-    margin-top: 40px;
+    margin-top: 10px;
 }
 
 /* - - - - - - - - - - - - - - - *
@@ -127,8 +127,12 @@ a {
     font-family: Helvetica Neue, Helvetica, Arial, sans-serif;
     margin-top: 10px;
     background: #ffffff;
+    text-align: center;
 }
-
+.api-key-input div {
+    padding: 10px;
+    font-size: .9vw;
+}
 .api-key-input input:hover {
     border-color: #0C60C7;
 }
