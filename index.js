@@ -36,10 +36,7 @@
 
     const initAll = async (api_key) => {
         await initCharts(api_key)
-
-        const dataHandler = new DataHandler(window.data)
-
-        initWebSockets(dataHandler, api_key)
+        initWebSockets(new DataHandler(window.data), api_key)
     }
 
     const getHistoricalOHLCV = (pair, api_key) => axios.get(`https://web3api.io/api/v1/market/ohlcv/${pair}/historical`, {
@@ -52,12 +49,13 @@
     const initWebSockets = (dataHandler, api_key) => {
 
         // Create WebSocket connection.
-        const socket = new WebSocket(`wss://ws.web3api.io?x-api-key=${api_key}`);
+        /*const socket = new WebSocket(`wss://ws.web3api.io?x-api-key=${api_key}`);
+        const pair = "eth_btc"
 
         // Connection opened
         socket.addEventListener('open', function (event) {
             console.log('Connection opened - ', event);
-            const pair = "eth_btc"
+
             socket.send(`{"jsonrpc":"2.0","id":0,"method":"subscribe","params":["market:orders",{"pair":"${pair}","exchange":"gdax"}]}`);
 
             setTimeout(() => {
@@ -73,34 +71,42 @@
         socket.addEventListener('close', function (event) {
             console.log('Connection closed - ', event);
             initWebSockets(dataHandler)
-        });
+        });*/
+
+        const w3d = new Web3Data(api_key)
+        console.log(w3d)
+        w3d.connect()
+        w3d.on({eventName: 'market:orders', filters: {"pair": "eth_btc", "exchange":"gdax"}}, (_order, order = _order[0] ) => _responseHandler(order, dataHandler))
     }
 
     const extractData = (data) => data.data.payload
 
-    const _responseHandler = (wsEvent, dataHandler) => {
-        const data = JSON.parse(wsEvent.data)
+    const _responseHandler = (order, dataHandler) => {
 
-        if(!isSubscriptionAck(data)) {
-            const order = data.params.result[0]
 
-            const point = new Point(order)
+        const point = new Point(order)
+        console.log( 'order - - - ', order )
+        console.log( 'point - - - ', point )
+        // check if bid is in asks or if aｓk in bids
+        // point.isBid ? dataHandler.inAsks(point) : dataHandler.inBids(point)
 
-            const pointExists = dataHandler.pointExists(point)
+        const pointExists = dataHandler.pointExists(point)
 
-            if(pointExists && point.volume > 0) {
-                dataHandler.updatePoint(point)
-            } else if(pointExists && point.volume === 0) {
-                dataHandler.removePoint(point)
-            } else if(!pointExists) {
-                dataHandler.addPoint(point)
-                // console.log(`no exist`, point)
-            } else {
-                console.log(`no exist`, point)
-            }
-            window.chart.data = dataHandler.getDataArray()
-            window.chart.invalidateData();
+        if(point.isBid && dataHandler.inAsks(point) || !point.isBid && dataHandler.inBids(point)) {
+            dataHandler.matchPoint(point)
+        } else if(pointExists && point.volume > 0) {
+            dataHandler.updatePoint(point)
+        } else if(pointExists && point.volume === 0) {
+            dataHandler.removePoint(point)
+        } else if(!pointExists) {
+            dataHandler.addPoint(point)
+            // console.log(`no exist`, point)
+        } else {
+            console.log(`no exist`, point)
         }
+        window.chart.data = dataHandler.getDataArray()
+        window.chart.invalidateData();
+
 
     }
 
@@ -136,6 +142,64 @@
 
         pointExists(point) {
             return point.isBid ? this.bids.has(point.price) : this.asks.has(point.price)
+        }
+
+        inAsks(point) {
+            return this.asks.has(point.price)
+        }
+
+        inBids(point) {
+            return this.bids.has(point.price)
+        }
+
+        pointMatch(point) {
+            return this.bids.has(point.price) && this.asks.has(point.price)
+        }
+
+        matchPoint(pointToMatch) {
+            // get the matching point
+            const matchingPoint = this._getDataSet(!pointToMatch.isBid).get(pointToMatch.price)
+
+            // if points are equal then...
+            if(pointToMatch.volume === matchingPoint.volume) {
+
+                // remove the matching point and don't add the new point (pointToMatch)
+                this.removePoint(matchingPoint)
+            } else if(pointToMatch.volume < matchingPoint.volume) {
+                // don't add the new point (pointToMatch) since it is "consumed" (full-filled)
+                // set the matching points volume to the difference of the new points volume
+                matchingPoint.volume -= pointToMatch.volume
+
+                // update the culm vol of the matching point's dataset
+                this.updatePoint(matchingPoint)
+            } else if(pointToMatch.volume > matchingPoint.volume) {
+                // remove the matching point since it gets "consumed" (full-filled)
+                this.removePoint(matchingPoint)
+
+                // set the new points volume to the difference of the matching points volume
+                pointToMatch.volume -= matchingPoint.volume
+
+                // add the new point
+                this.addPoint(pointToMatch)
+            }
+            // remove matchingPoint point
+
+            // update both culm vol using value = pointToMatch.volume
+
+            /*
+
+            volA - volB < 0
+
+           */
+
+            // if bid < a$k
+            // remove the bid update culm vol using value =
+
+            // bid > a$k
+
+
+
+
         }
 
         updatePoint(pointToUpdate) {

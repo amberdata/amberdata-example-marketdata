@@ -25,6 +25,11 @@ body {
 a {
     color: inherit;
     text-decoration: none;
+    transition: opacity 300ms ease-in-out;
+}
+
+a:hover {
+    opacity: .7;
 }
 
 #overlay {
@@ -128,13 +133,14 @@ a {
     margin-top: 10px;
     background: #ffffff;
     text-align: center;
+    transition: border-color 250ms ease;
 }
 .api-key-input div {
     padding: 10px;
     font-size: .9vw;
 }
 .api-key-input input:hover {
-    border-color: #0C60C7;
+    border-color: #F26724;
 }
 
 .api-key-input input:focus {
